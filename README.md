@@ -13,3 +13,6 @@ To use POST or DELETE you can use http://localhost:5005/api/user?username=admin&
 
 ### To explore the container and check the logs you can use
 docker exec -it api_example bash -l
+
+### Stop and remove the container
+docker stop api_example && docker rm api_example
