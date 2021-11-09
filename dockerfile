@@ -6,7 +6,6 @@ RUN mkdir files
 
 RUN pip install --upgrade pip 
 
-COPY ./files/ /app/files/
 COPY ./src/ /app/
 RUN pip install -r requirements.txt
 
