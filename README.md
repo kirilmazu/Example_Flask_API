@@ -16,3 +16,8 @@ docker exec -it api_example bash -l
 
 ### Stop and remove the container
 docker stop api_example && docker rm api_example
+
+
+### test for user chack
+In the code created 3 users one of tham admin with password admin\
+after you will start the container you get from "127.0.0.1:5005/api/user_check/admin/admin" the result will be: "{"SUCCESS": "user admin and password matching."}"

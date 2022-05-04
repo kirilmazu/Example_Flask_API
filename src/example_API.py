@@ -8,7 +8,8 @@ import json
 # Init the logger
 log_level = os.getenv('LOG_LEVEL')
 if log_level != logging.ERROR and log_level != logging.INFO and log_level != logging.DEBUG:
-    log_level = logging.INFO
+    log_level = logging.DEBUG
+    #log_level = logging.INFO
 log_file = 'example_API_log.log'
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(funcName)s - %(message)s', level=log_level, filename=log_file)
 
@@ -73,12 +74,30 @@ def delete_user(name, password):
     conn.close()
     return "SUCCESS"
 
+# Get user password
+def get_user_password(name):
+    # Get connection to db
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT password FROM users WHERE user_name=?", (name,))
+    except sqlite3.OperationalError as e:
+        #logging.error("Can't execute the query:\n{0}".format(e))
+        return "{\"ERROR\": \"Can't execute the query.\"}"
+    result = cur.fetchall()
+    conn.close()
+    return result
+
 
 ###
 # Init the DB
 init_db()
 # Add admin user
 add_user("admin", "admin")
+# Add tests users
+add_user("test1", "test1")
+add_user("user_name", "Password")
+
 # Flask init
 app = Flask(__name__)
 # API / rout
@@ -153,6 +172,35 @@ def route_raw_add_user(username=None, password=None):
     return "{{\"SUCCESS\": \"user {0} created.\"}}".format(username)
 
 
+# Check if user exist
+@app.route("/api/user_check/<username>/<password>")
+def route_raw_user_check(username=None, password=None):
+    # Check if get all the info you need
+    if username is None or password is None:
+        logging.debug("username or password is None.")
+        return "{ \"ERROR\" : \"username and password is required.\" }"
+    result = get_user_password(username)
+    if "ERROR" in result:
+        return "{ \"ERROR\" : \"Failed to get the user.\" }"
+    try:
+        # In case if user not found it will fail to get value from result[0][0]
+        if str(result[0][0]) == password:
+            return "{{\"SUCCESS\": \"user {0} and password matching.\"}}".format(username)
+    except Exception as e:
+        logging.error("Can't get user or password, error:\n{0}".format(e))
+    # API return
+    return "{{\"FAILED\": \"user {0} or password is wrong.\"}}".format(username)
+
+
+# Check if user exist with GET method
+@app.route("/api/user_check/", methods=['GET'])
+def route_user_check():
+    # Get username and password from the request
+    username = request.args.get('username', default=None, type=str)
+    password = request.args.get('password', default=None, type=str)
+    route_raw_user_check(username, password)
+
+
 # Get all users with raw url
 @app.route("/api/get_users")
 def route_raw_get_user(username=None, password=None):
@@ -160,3 +208,16 @@ def route_raw_get_user(username=None, password=None):
     users = get_users()
     # API return
     return json.dumps(users, indent=4)
+
+# Get all logs with raw url
+@app.route("/api/get_logs")
+def route_raw_get_logs():
+    # Get all logs
+    try:
+        with open(log_file) as f:
+            contents = f.read()
+            return json.dumps(contents, indent=4)
+    except Exception as e:
+        logging.error("Can't execute the query:\n{0}".format(e))
+        # API return
+        return "{ \"ERROR\" : \"Failed get the logs.\" }"
