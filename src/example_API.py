@@ -1,3 +1,4 @@
+import hashlib
 import sqlite3
 from flask import Response, Flask, request
 import logging
@@ -31,7 +32,12 @@ def init_db():
 
 
 # Get all users
-def get_users():
+def get_users() -> list:
+    """
+        Get list of all users.
+    Returns:
+        list: [[index(int),username(str),password(str)],[...]] 
+    """
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     # Get available VM name
@@ -45,13 +51,22 @@ def get_users():
     return result
 
 
-# Add user
-def add_user(name, password):
+def add_user(username:str, password:str) -> str:
+    """
+        Add user with hashed password to DB.
+    Args:
+        username (str): Username to save.
+        password (str): Plain text password.
+    Returns:
+        str: SUCCESS if not get error, json with ERROR if failed to add the user
+    """
+    # Hash the password to save
+    password = hash_password(password)
     # Get connection to db
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     try:
-        cur.execute("INSERT OR REPLACE INTO users (user_name, password) VALUES (?, ?)", (name, password,))
+        cur.execute("INSERT OR REPLACE INTO users (user_name, password) VALUES (?, ?)", (username, password,))
         conn.commit()
     except sqlite3.OperationalError as e:
         logging.error("Can't execute the query:\n{0}".format(e))
@@ -60,13 +75,22 @@ def add_user(name, password):
     return "SUCCESS"
 
 
-# Delete user (with the same user and password)
-def delete_user(name, password):
+def delete_user(username:str, password:str) -> str:
+    """
+        Delete user (with the same user and password)
+    Args:
+        username (str): Username.
+        password (str): Plain text password.
+    Returns:
+        str: SUCCESS if not get error, json with ERROR if failed to delete the user
+    """
+    # Hash the password to save
+    password = hash_password(password)
     # Get connection to db
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     try:
-        cur.execute("DELETE FROM users WHERE user_name=? and password=?", (name, password,))
+        cur.execute("DELETE FROM users WHERE user_name=? and password=?", (username, password,))
         conn.commit()
     except sqlite3.OperationalError as e:
         logging.error("Can't execute the query:\n{0}".format(e))
@@ -74,20 +98,67 @@ def delete_user(name, password):
     conn.close()
     return "SUCCESS"
 
-# Get user password
-def get_user_password(name):
+
+def get_user_password(username:str) -> str:
+    """
+        Get user password
+    Args:
+        username (str): username to get password of.
+    Returns:
+        str: user hashed password if found, json with ERROR in not.
+    """
     # Get connection to db
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     try:
-        cur.execute("SELECT password FROM users WHERE user_name=?", (name,))
+        cur.execute("SELECT password FROM users WHERE user_name=?", (username,))
+        result = cur.fetchall()
+        conn.close()
+        return result[0][0]
     except sqlite3.OperationalError as e:
         #logging.error("Can't execute the query:\n{0}".format(e))
         return "{\"ERROR\": \"Can't execute the query.\"}"
-    result = cur.fetchall()
-    conn.close()
-    return result
+    except Exception as e:
+        return "{\"ERROR\": \"Get user failed.\"}"
 
+
+def user_exist(username:str) -> bool:
+    """
+        Check if username exist in the DB
+    Args:
+        username (str): Username to check.
+    Returns:
+        bool: true if exist.
+    """
+    password = get_user_password(username)
+    if "ERROR" not in password:
+        return True
+    return False
+
+def hash_password(password:str) -> str:
+    """
+        Hash string with sha256
+    Args:
+        password (str): password string to hash.
+    Returns:
+        str: hashed string from password string
+    """
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def check_user_password(username:str, password:str) -> bool:
+    """
+        Check if the input password hashed and compered with saved password.
+    Args:
+        username (str): User name of the user to check.
+        password (str): plain text password to compere with saved password.
+    Returns:
+        bool: True if password equals to user password (comper hashed), False if not equals or failed to get user password. 
+    """
+    user_pass = get_user_password(username)
+    #get_user_password can return string with ERROR if user not exist or wuery failed
+    if "ERROR" in user_pass:
+        return False
+    return user_pass == hash_password(password)
 
 ###
 # Init the DB
@@ -109,10 +180,20 @@ def welcome():
     <h3>POST/GET/DELETE</h3>
     <p>username and password is required</p>
     <p>/api/user</p>
+    <p>check user: /api/user_check (POST/GET)</p>
     <h3>RAW</h3>
     <p>add user: /api/add_user/username/password</p>
+    <p>check user: /api/user_check/username/password</p>
+    <p>/api/get_users</p>
+    <p>/api/get_logs</p>
     """
     return index_string
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    # note that we set the 404 status explicitly
+    return welcome()
 
 
 # Get all users with GET method
@@ -184,7 +265,7 @@ def route_raw_user_check(username=None, password=None):
         return "{ \"ERROR\" : \"Failed to get the user.\" }"
     try:
         # In case if user not found it will fail to get value from result[0][0]
-        if str(result[0][0]) == password:
+        if str(result) == hash_password(password):
             return "{{\"SUCCESS\": \"user {0} and password matching.\"}}".format(username)
     except Exception as e:
         logging.error("Can't get user or password, error:\n{0}".format(e))
@@ -193,21 +274,23 @@ def route_raw_user_check(username=None, password=None):
 
 
 # Check if user exist with GET method
-@app.route("/api/user_check/", methods=['GET'])
+@app.route("/api/user_check/", methods=['POST', 'GET'])
 def route_user_check():
     # Get username and password from the request
     username = request.args.get('username', default=None, type=str)
     password = request.args.get('password', default=None, type=str)
-    route_raw_user_check(username, password)
+    logging.debug("user_check: username {0}\n password {1}".format(username, password))
+    return route_raw_user_check(username, password)
 
 
 # Get all users with raw url
 @app.route("/api/get_users")
-def route_raw_get_user(username=None, password=None):
+def route_raw_get_user():
     # Get all users
     users = get_users()
     # API return
     return json.dumps(users, indent=4)
+
 
 # Get all logs with raw url
 @app.route("/api/get_logs")
