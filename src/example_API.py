@@ -190,6 +190,12 @@ def welcome():
     return index_string
 
 
+@app.errorhandler(404)
+def page_not_found(e):
+    # note that we set the 404 status explicitly
+    return welcome()
+
+
 # Get all users with GET method
 @app.route("/api/user/", methods=['GET'])
 def route_get_users():
