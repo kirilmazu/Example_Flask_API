@@ -1,6 +1,5 @@
 import hashlib
 import sqlite3
-from turtle import st
 from flask import Response, Flask, request
 import logging
 import os
@@ -33,7 +32,12 @@ def init_db():
 
 
 # Get all users
-def get_users():
+def get_users() -> list:
+    """
+        Get list of all users.
+    Returns:
+        list: [[index(int),username(str),password(str)],[...]] 
+    """
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     # Get available VM name
@@ -94,7 +98,8 @@ def delete_user(username:str, password:str) -> str:
     conn.close()
     return "SUCCESS"
 
-def get_user_password(username:str)->str:
+
+def get_user_password(username:str) -> str:
     """
         Get user password
     Args:
@@ -116,7 +121,15 @@ def get_user_password(username:str)->str:
     except Exception as e:
         return "{\"ERROR\": \"Get user failed.\"}"
 
-def user_exist(username:str)->bool:
+
+def user_exist(username:str) -> bool:
+    """
+        Check if username exist in the DB
+    Args:
+        username (str): Username to check.
+    Returns:
+        bool: true if exist.
+    """
     password = get_user_password(username)
     if "ERROR" not in password:
         return True
@@ -167,8 +180,12 @@ def welcome():
     <h3>POST/GET/DELETE</h3>
     <p>username and password is required</p>
     <p>/api/user</p>
+    <p>check user: /api/user_check (POST/GET)</p>
     <h3>RAW</h3>
     <p>add user: /api/add_user/username/password</p>
+    <p>check user: /api/user_check/username/password</p>
+    <p>/api/get_users</p>
+    <p>/api/get_logs</p>
     """
     return index_string
 
@@ -251,18 +268,18 @@ def route_raw_user_check(username=None, password=None):
 
 
 # Check if user exist with GET method
-@app.route("/api/user_check/", methods=['POST'])
+@app.route("/api/user_check/", methods=['POST', 'GET'])
 def route_user_check():
     # Get username and password from the request
     username = request.args.get('username', default=None, type=str)
     password = request.args.get('password', default=None, type=str)
-    logging.debug("user_check: username {0}\n password {1}").format(username, password)
-    route_raw_user_check(username, password)
+    logging.debug("user_check: username {0}\n password {1}".format(username, password))
+    return route_raw_user_check(username, password)
 
 
 # Get all users with raw url
 @app.route("/api/get_users")
-def route_raw_get_user(username=None, password=None):
+def route_raw_get_user():
     # Get all users
     users = get_users()
     # API return
