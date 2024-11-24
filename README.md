@@ -1,8 +1,28 @@
 # Example_Flask_API
-Example of Flask API with basics of GET, POST, DELETE and data in path.\
-As example this API manage basic user managment (only user pasword, use sqlite as DB), options:
-* get, create, delete user
-* check if user and password match
+A simple Flask API example demonstrating basic REST operations (GET, POST, DELETE) and URL path parameters. This project implements basic user management with SQLite database storage.
+
+## Features
+
+- User management (create, read, delete)
+- Password hashing
+- User authentication
+- SQLite database storage
+- Logging functionality
+- Docker support
+
+## API Endpoints
+
+### REST Endpoints
+- `GET /api/user/` - Get all users
+- `POST /api/user/` - Create new user (requires username & password)  
+- `DELETE /api/user/` - Delete user (requires username & password)
+- `GET/POST /api/user_check/` - Verify user credentials
+
+### Raw URL Endpoints
+- `/api/add_user/<username>/<password>` - Create new user
+- `/api/user_check/<username>/<password>` - Verify user credentials
+- `/api/get_users` - Get all users
+- `/api/get_logs` - Get application logs
 
 
 ## Run with Docker
