@@ -1,15 +1,25 @@
 FROM python:3.8-slim-buster as prod
 
-RUN mkdir /app
+# Create app directory and set working directory
 WORKDIR /app
 RUN mkdir files
 
-RUN pip install --upgrade pip 
+# Install dependencies
+COPY ./src/requirements.txt /app/
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
 
+# Copy application code
 COPY ./src/ /app/
-RUN pip install -r requirements.txt
 
-ENV DB_PATH=/app/files/example_db.db
+# Set environment variables
+ENV DB_PATH=/app/files/example_db.db \
+    FLASK_APP=example_API.py \
+    FLASK_ENV=production \
+    PORT=5005
 
-ENV FLASK_APP=example_API.py
-CMD flask run -h 0.0.0 -p 5005
+# Expose port
+EXPOSE ${PORT}
+
+# Run Flask app
+CMD flask run --host=0.0.0.0 --port=${PORT}
